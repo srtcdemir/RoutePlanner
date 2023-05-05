@@ -16,6 +16,7 @@ import Parse from 'parse/dist/parse.min.js';
 import GeneticAlgorithm from "./GeneticAlgorithm/index";
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import randomColor from "randomcolor";
 
 delete L.Icon.Default.prototype._getIconUrl;
 
@@ -39,6 +40,7 @@ const App = () => {
     const [startEnd, setStartEnd] = useState({"rank": true, "start": null, "end": null})
     const [selection, setSelection] = React.useState("elit");
     const [crossover, setCrossover] = React.useState("pmx");
+    const [populationSize, setPopulationSize] = React.useState(1);
     const [path, setPath] = React.useState();
 
     useEffect(() => {
@@ -96,23 +98,25 @@ const App = () => {
 
     const DrawPath = () => {
         let lines = [];
-        for (let i = 0; i < path.length - 1; i++) {
-            lines.push(
-                <Polyline
-                    positions={[[path[i].latitude, path[i].longitude], [path[i + 1].latitude, path[i + 1].longitude]]}></Polyline>
-            )
-        }
+        path.map(p => {
+            let random_color = randomColor()
+            for (let i = 0; i < p["path"].length - 1; i++) {
+                lines.push(
+                    <Polyline
+                        positions={[[p["path"][i].latitude, p["path"][i].longitude],
+                            [p["path"][i + 1].latitude, p["path"][i + 1].longitude]]}
+                        color={random_color}
+                    >
+                    </Polyline>
+                )
+            }
+        })
+
         return lines;
     }
 
     const DrawNeighborhoods = () => {
         let lines = [];
-        // let ankara = cities.find(x => x.plaka === 25)
-        // ankara.komsular.forEach((l, index2) => {
-        //     let city = cities.find(c => c.plaka === l)
-        //     lines.push(<Polyline
-        //         positions={[[ankara.latitude, ankara.longitude], [city.latitude, city.longitude]]}></Polyline>)
-        // })
         cities.map((x, index1) =>
             x.komsular.map((l, index2) => {
                 let city = cities.find(c => c.plaka === l)
@@ -161,10 +165,14 @@ const App = () => {
         setCrossover(newCrossover);
     };
 
+    const handleSlider = (event, newValue) => {
+        setPopulationSize(newValue);
+    }
+
     const start = () => {
-        let GA = new GeneticAlgorithm(100, 100, selection, crossover, startEnd, cities)
+        let GA = new GeneticAlgorithm(100, populationSize, selection, crossover, startEnd, cities)
         GA.start()
-        setPath(GA.path)
+        setPath(GA.population)
     }
 
     return (
@@ -205,7 +213,7 @@ const App = () => {
                     <label>Population Size</label>
                 </Grid>
                 <Grid item xs>
-                    <Slider/>
+                    <Slider min={1} max={10} onChange={handleSlider}/>
                 </Grid>
                 <Grid item xs>
                     <label>Selection Methods</label>
@@ -220,8 +228,8 @@ const App = () => {
                     >
                         <ToggleButton value="roulette">Roulette Wheel Selection</ToggleButton>
                         <ToggleButton value="rank">Rank Selection</ToggleButton>
-                        <ToggleButton value="torunament">Tournament Selection</ToggleButton>
-                        <ToggleButton value="elit">Elitist Selection</ToggleButton>
+                        <ToggleButton value="tournament">Tournament Selection</ToggleButton>
+                        <ToggleButton value="elitist">Elitist Selection</ToggleButton>
                     </ToggleButtonGroup>
                 </Grid>
                 <Grid item xs>
