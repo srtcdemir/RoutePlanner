@@ -13,9 +13,21 @@ const selection = (method, population, ratio) => {
     }
 }
 const roulette_wheel_selection = (population, ratio) => {
-    population.map(x=>
-        console.log(x.cost)
-    )
+    let selected_population = [];
+    let new_population_count = parseInt(population.length * ratio);
+    const total_fitness = population.reduce((acc, o) => acc + parseInt(o.cost), 0)
+    for (let i = 0; i < new_population_count; i++) {
+        const random_number = Math.random() * total_fitness;
+        let sum = 0;
+        for (let i = 0; i < population.length; i++) {
+            sum += population[i].cost;
+            if (sum > random_number){
+                selected_population.push(population[i])
+                break;
+            }
+        }
+    }
+    return selected_population
 }
 
 const rank_selection = (population, ratio) => {

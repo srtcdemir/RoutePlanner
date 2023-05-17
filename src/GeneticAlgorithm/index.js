@@ -1,5 +1,8 @@
 import {getDistance} from "geolib";
 import selection from "./selection_methods"
+import crossover1 from "./crossover_methods";
+import mutation1 from "./mutation_methods";
+import Graph from "./graph";
 
 class GeneticAlgorithm {
     constructor(iteration_size, population_size, selection_method, crossover_method, startEnd, cities) {
@@ -10,25 +13,8 @@ class GeneticAlgorithm {
         this.startEnd = startEnd;
         this.cities = cities;
         this.best = 0;
+        this.crossovered = []
         this.population = [];
-    }
-
-    random_path(start, end) {
-        let start_point = this.cities.find(x => x.plaka === start)
-        let current_city = start_point;
-        let path = [start_point]
-        for (let i = 0; i < this.cities.length - 1; i++) {
-            while (path.some(x => x.plaka === current_city.plaka)) {
-                const random_neighbor = current_city.komsular.sort(() => 0.5 - Math.random())[0];
-                current_city = this.cities.find(x => x.plaka === random_neighbor)
-            }
-            path.push(current_city)
-        }
-        let target_index = path.findIndex(x => x.plaka === end)
-        path = path.slice(0, target_index + 1)
-        this.fitness(path)
-        return path
-
     }
 
     fitness(path) {
@@ -41,20 +27,32 @@ class GeneticAlgorithm {
         return total_cost
     }
 
-    initialize() {
-        for (let i = 0; i < this.population_size; i++) {
-            let random_path = this.random_path(6, 25);
-            let cost = this.fitness(random_path)
-            this.population.push({
-                "path": random_path,
-                "cost": cost
-            });
+    initialize(graph) {
+        while (this.population.length < this.population_size) {
+            let random_path = graph.getRandomPathWithoutRevisiting(6, 25)
+            if (random_path.at(-1).plaka === 25) {
+                let cost = this.fitness(random_path)
+                this.population.push({
+                    "path": random_path,
+                    "cost": cost
+                });
+            }
         }
     }
 
     start() {
-        this.initialize();
-        selection(this.selection_method, this.population, 0.2)
+        const graph = new Graph(this.cities);
+        this.initialize(graph)
+        let iterator = 0;
+        while (iterator < this.iteration_size) {
+            let selected = selection(this.selection_method, this.population, 0.1)
+            let crossovered = crossover1(selected, this.fitness, 20)
+            this.crossovered=structuredClone(crossovered);
+            if (!crossovered)
+                continue;
+            mutation1(graph, crossovered, 0.6)
+            iterator++;
+        }
         // setTimeout(() => {
         //     if (!this.is_initialized) {
         //         this.is_initialized = true;

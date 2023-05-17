@@ -61,6 +61,7 @@ const App = () => {
         fetchGet("cities").then(res => {
             let new_dict = res.map(c => ({
                 "plaka": c.attributes.plaka,
+                "il_adi": c.attributes.il_adi,
                 "latitude": c.attributes.lat,
                 "longitude": c.attributes.lon,
                 "komsular": c.attributes.komsular
@@ -98,17 +99,31 @@ const App = () => {
 
     const DrawPath = () => {
         let lines = [];
-        path.map(p => {
+        path.map((p, index) => {
             let random_color = randomColor()
             for (let i = 0; i < p["path"].length - 1; i++) {
-                lines.push(
-                    <Polyline
-                        positions={[[p["path"][i].latitude, p["path"][i].longitude],
-                            [p["path"][i + 1].latitude, p["path"][i + 1].longitude]]}
-                        color={random_color}
-                    >
-                    </Polyline>
-                )
+                if (index === 0)
+                    lines.push(
+                        <Polyline
+                            key={index + "-" + i}
+                            pathOptions={{weight: 5}}
+                            positions={[[p["path"][i].latitude, p["path"][i].longitude],
+                                [p["path"][i + 1].latitude, p["path"][i + 1].longitude]]}
+                            color={random_color}
+                        >
+                        </Polyline>
+                    )
+                else
+                    lines.push(
+                        <Polyline
+                            key={index + "-" + i}
+                            pathOptions={{weight: 2}}
+                            positions={[[p["path"][i].latitude, p["path"][i].longitude],
+                                [p["path"][i + 1].latitude, p["path"][i + 1].longitude]]}
+                            color={random_color}
+                        >
+                        </Polyline>
+                    )
             }
         })
 
@@ -170,9 +185,9 @@ const App = () => {
     }
 
     const start = () => {
-        let GA = new GeneticAlgorithm(100, populationSize, selection, crossover, startEnd, cities)
+        let GA = new GeneticAlgorithm(10, populationSize, selection, crossover, startEnd, cities)
         GA.start()
-        setPath(GA.population)
+        setPath(GA.crossovered)
     }
 
     return (
@@ -213,7 +228,7 @@ const App = () => {
                     <label>Population Size</label>
                 </Grid>
                 <Grid item xs>
-                    <Slider min={1} max={10} onChange={handleSlider}/>
+                    <Slider min={20} max={100} onChange={handleSlider}/>
                 </Grid>
                 <Grid item xs>
                     <label>Selection Methods</label>
