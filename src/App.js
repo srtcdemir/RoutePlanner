@@ -4,7 +4,7 @@ arf -> arrow function
 */
 
 import React, {useEffect, useState} from "react";
-import {Circle, MapContainer, TileLayer, Polyline, useMapEvents} from "react-leaflet";
+import {Circle, MapContainer, TileLayer, Polyline, useMapEvents, useMap} from "react-leaflet";
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -12,11 +12,13 @@ import Switch from '@mui/material/Switch';
 import FormGroup from '@mui/material/FormGroup';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import {Button, Grid, Slider} from "@mui/material";
-import Parse from 'parse/dist/parse.min.js';
+// import Parse from 'parse/dist/parse.min.js';
 import GeneticAlgorithm from "./GeneticAlgorithm/index";
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import randomColor from "randomcolor";
+import RoutingMachine from "./RoutingMachine";
+import {findNearest} from 'geolib'
 
 delete L.Icon.Default.prototype._getIconUrl;
 
@@ -38,49 +40,62 @@ const App = () => {
         "neighborhoods": false
     })
     const [startEnd, setStartEnd] = useState({"rank": true, "start": null, "end": null})
+    const [GA, setGA] = React.useState(null);
     const [selection, setSelection] = React.useState("elit");
     const [crossover, setCrossover] = React.useState("pmx");
-    const [populationSize, setPopulationSize] = React.useState(1);
-    const [path, setPath] = React.useState();
+    const [populationSize, setPopulationSize] = React.useState(20);
+    const [iterationSize, setIterationSize] = React.useState(20);
+    const [speed, setSpeed] = React.useState(0);
+    const [best, setBest] = React.useState();
+    const [iterator, setIterator] = React.useState(0);
+    const [status, setStatus] = React.useState(false);
 
     useEffect(() => {
 
-        const PARSE_APPLICATION_ID = 't1gxmiqaY7rLluwnd8qn79hMQPMSZoR4NAWPhbh1';
-        const PARSE_HOST_URL = 'https://parseapi.back4app.com/';
-        const PARSE_JAVASCRIPT_KEY = '88o1WbCKnCSuY2uCjotrPPIEnTWhUykDdJBZOO6Y';
-        Parse.initialize(PARSE_APPLICATION_ID, PARSE_JAVASCRIPT_KEY);
-        Parse.serverURL = PARSE_HOST_URL;
+        // const PARSE_APPLICATION_ID = 't1gxmiqaY7rLluwnd8qn79hMQPMSZoR4NAWPhbh1';
+        // const PARSE_HOST_URL = 'https://parseapi.back4app.com/';
+        // const PARSE_JAVASCRIPT_KEY = '88o1WbCKnCSuY2uCjotrPPIEnTWhUykDdJBZOO6Y';
+        // Parse.initialize(PARSE_APPLICATION_ID, PARSE_JAVASCRIPT_KEY);
+        // Parse.serverURL = PARSE_HOST_URL;
+        // "latitude": c.attributes.lat, // Örnek
+        // fetchGet("stations")
 
-        fetchGet("stations").then(res => {
+        fetchMongoDbOnline("stations").then(res => {
             let new_dict = res.map(c => ({
-                "latitude": c.attributes.latitude,
-                "longitude": c.attributes.longitude
+                "latitude": c.latitude,
+                "longitude": c.longitude
             }))
             setStations(new_dict)
         })
-        fetchGet("cities").then(res => {
+        fetchMongoDbOnline("cities").then(res => {
             let new_dict = res.map(c => ({
-                "plaka": c.attributes.plaka,
-                "il_adi": c.attributes.il_adi,
-                "latitude": c.attributes.lat,
-                "longitude": c.attributes.lon,
-                "komsular": c.attributes.komsular
+                "plaka": c.plaka,
+                "il_adi": c.il_adi,
+                "latitude": c.lat,
+                "longitude": c.lon,
+                "komsular": c.komsular
             }))
             setCities(new_dict)
         })
-        fetchGet("states").then(res => {
+        fetchMongoDbOnline("states").then(res => {
             let new_dict = res.map(c => ({
-                "latitude": c.attributes.lat,
-                "longitude": c.attributes.lon
+                "latitude": c.lat,
+                "longitude": c.lon
             }))
             setStates(new_dict)
         })
 
+
     }, [])
 
-    async function fetchGet(table) {
-        const query = new Parse.Query(table);
-        return await query.findAll();
+    // async function fetchGet(table) {
+    //     const query = new Parse.Query(table);
+    //     return await query.findAll();
+    // }
+
+    async function fetchMongoDbOnline(table) {
+        return await fetch("http://localhost:8080/api/planner/" + table)
+            .then(r => r.json())
     }
 
     const DrawStations = () => {
@@ -97,35 +112,18 @@ const App = () => {
             <Circle key={index} center={[x.latitude, x.longitude]} pathOptions={{color: 'green'}}></Circle>)
     }
 
-    const DrawPath = () => {
+    const DrawBestPath = () => {
         let lines = [];
-        path.map((p, index) => {
-            let random_color = randomColor()
-            for (let i = 0; i < p["path"].length - 1; i++) {
-                if (index === 0)
-                    lines.push(
-                        <Polyline
-                            key={index + "-" + i}
-                            pathOptions={{weight: 5}}
-                            positions={[[p["path"][i].latitude, p["path"][i].longitude],
-                                [p["path"][i + 1].latitude, p["path"][i + 1].longitude]]}
-                            color={random_color}
-                        >
-                        </Polyline>
-                    )
-                else
-                    lines.push(
-                        <Polyline
-                            key={index + "-" + i}
-                            pathOptions={{weight: 2}}
-                            positions={[[p["path"][i].latitude, p["path"][i].longitude],
-                                [p["path"][i + 1].latitude, p["path"][i + 1].longitude]]}
-                            color={random_color}
-                        >
-                        </Polyline>
-                    )
-            }
-        })
+        for (let i = 0; i < best.path.length - 1; i++) {
+            lines.push(
+                <Polyline
+                    positions={[[best.path[i].latitude, best.path[i].longitude],
+                        [best.path[i + 1].latitude, best.path[i + 1].longitude]]}
+                    color={"red"}
+                >
+                </Polyline>
+            )
+        }
 
         return lines;
     }
@@ -149,16 +147,19 @@ const App = () => {
     const MyComponent = () => {
         useMapEvents({
             click: (e) => {
-                if (startEnd["rank"])
+                if (startEnd["rank"]) {
+                    const start = findNearest({latitude: e.latlng.lat, longitude: e.latlng.lng}, cities)
                     setStartEnd(prev => ({
                         ...prev, "rank": !startEnd["rank"],
-                        "start": e.latlng
+                        "start": start
                     }))
-                else
+                } else {
+                    const end = findNearest({latitude: e.latlng.lat, longitude: e.latlng.lng}, cities)
                     setStartEnd(prev => ({
                         ...prev, "rank": !startEnd["rank"],
-                        "end": e.latlng
+                        "end": end
                     }))
+                }
             }
         });
         return null;
@@ -166,10 +167,13 @@ const App = () => {
 
     const DrawClick = () => {
         if (startEnd["start"] && !startEnd["end"])
-            return <Circle index={"start"} center={startEnd["start"]} radius={10000} color={"red"}/>
+            return <Circle index={"start"} center={[startEnd["start"].latitude, startEnd["start"].longitude]}
+                           radius={10000} color={"red"}/>
         else if (startEnd["start"] && startEnd["end"])
-            return [<Circle index={"start"} center={startEnd["start"]} radius={10000} color={"red"}/>,
-                <Circle index={"end"} center={startEnd["end"]} radius={10000} color={"blue"}/>]
+            return [<Circle index={"start"} center={[startEnd["start"].latitude, startEnd["start"].longitude]}
+                            radius={10000} color={"red"}/>,
+                <Circle index={"end"} center={[startEnd["end"].latitude, startEnd["end"].longitude]} radius={10000}
+                        color={"blue"}/>]
     }
 
     const handleSelection = (event, newSelection) => {
@@ -181,28 +185,49 @@ const App = () => {
     };
 
     const handleSlider = (event, newValue) => {
-        setPopulationSize(newValue);
+        if (event.target.name === "population_slider")
+            setPopulationSize(newValue);
+        else if (event.target.name === "iteration_slider")
+            setIterationSize(newValue);
+        else if (event.target.name === "speed")
+            setSpeed(newValue);
     }
 
     const start = () => {
-        let GA = new GeneticAlgorithm(10, populationSize, selection, crossover, startEnd, cities)
-        GA.start()
-        setPath(GA.crossovered)
+        if (!status) {
+            setStatus(true);
+            let tempGA = new GeneticAlgorithm(iterationSize, populationSize, selection, crossover, startEnd, cities)
+            const props = {"setBest": setBest, "speed": speed, "iterator": iterator, "setIterator": setIterator, "setStatus": setStatus}
+            tempGA.start(props)
+            setGA(tempGA)
+        } else {
+            setStatus(false);
+            GA.stop()
+        }
+
     }
 
+    const DrawRoute = () => {
+        var lines = []
+        const waypoints = best.path.map(c => [c.latitude, c.longitude])
+        lines.push(
+            <RoutingMachine waypoints={waypoints}/>
+        )
+        return lines
+    }
+
+
     return (
-        <Grid container spacing={2}>
+        <Grid container xs={12} spacing={{xs: 2, md: 3}}>
             <Grid item xs={9}>
-                <MapContainer eventHandlers={{}} center={[36, 36]} zoom={6} style={{height: '100vh', width: '100wh'}}>
-                    <TileLayer
-                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    />
+                <MapContainer center={[36, 36]} zoom={6} style={{height: '100vh', width: '100wh'}}>
+                    <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
                     {statuses["stations"] ? <DrawStations/> : ""}
                     {statuses["cities"] ? <DrawCities/> : ""}
                     {statuses["neighborhoods"] ? <DrawNeighborhoods/> : ""}
                     {statuses["states"] ? <DrawStates/> : ""}
-                    {path ? <DrawPath/> : ""}
+                    {best ? <DrawBestPath/> : ""}
+                    {/*{best ? DrawRoute() : ""}*/}
                     <MyComponent/>
                     <DrawClick/>
                 </MapContainer>
@@ -212,23 +237,33 @@ const App = () => {
                     <FormGroup row>
                         <FormControlLabel
                             control={<Switch id={"stations"} onChange={switch_handle} color="info"/>}
-                            label="Stations"/>
+                            label="Stations"
+                        />
                         <FormControlLabel
                             control={<Switch id={"cities"} onChange={switch_handle} color="error"/>}
-                            label="Cities"/>
+                            label="Cities"
+                        />
                         <FormControlLabel
                             control={<Switch id={"states"} onChange={switch_handle} color="success"/>}
-                            label="States"/>
+                            label="States"
+                        />
                         <FormControlLabel
                             control={<Switch id={"neighborhoods"} onChange={switch_handle} color="success"/>}
-                            label="Neighborhoods"/>
+                            label="Neighborhoods"
+                        />
                     </FormGroup>
                 </Grid>
                 <Grid item xs>
                     <label>Population Size</label>
                 </Grid>
                 <Grid item xs>
-                    <Slider min={20} max={100} onChange={handleSlider}/>
+                    <Slider name="population_slider" min={20} max={300} valueLabelDisplay="auto" onChange={handleSlider}/>
+                </Grid>
+                <Grid item xs>
+                    <label>Iteration Size</label>
+                </Grid>
+                <Grid item xs>
+                    <Slider name="iteration_slider" min={20} max={1000} valueLabelDisplay="auto" onChange={handleSlider}/>
                 </Grid>
                 <Grid item xs>
                     <label>Selection Methods</label>
@@ -263,11 +298,18 @@ const App = () => {
                     </ToggleButtonGroup>
                 </Grid>
                 <Grid item xs>
-                    <Button onClick={start} variant="contained">Start</Button>
+                    <label>Iteration Speed</label>
+                </Grid>
+                <Grid item xs>
+                    <Slider name="speed" aria-label="Speed" defaultValue={0} valueLabelDisplay="auto" step={50} marks min={0} max={1000} onChange={handleSlider}/>
+                </Grid>
+                <Grid item xs>
+                    <Button onClick={start} variant="contained">{status ? "Stop" : "Start"}</Button>
+                </Grid>
+                <Grid item xs>
+                    <label>{iterator}</label>
                 </Grid>
             </Grid>
-
-
         </Grid>
     )
 }
